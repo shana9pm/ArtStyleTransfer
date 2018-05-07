@@ -4,6 +4,7 @@ import time
 from scipy.optimize import fmin_l_bfgs_b
 from Settings import *
 import keras.backend as K
+import copy
 
 def calculate_loss(outputImg):
     if outputImg.shape != (1, WIDTH, WIDTH, 3):
@@ -12,7 +13,7 @@ def calculate_loss(outputImg):
     return loss_fcn([outputImg])[0].astype('float64')
 
 def get_total_loss(outputPlaceholder,alpha=1.0, beta=10000.0):
-    F = get_feature_reps(outputPlaceholder,layer_names=[contentLayerName], model=outModel)[0]
+    F = get_feature_reps(outputPlaceholder,layer_names=[contentLayerNames], model=outModel)[0]
     Gs = get_feature_reps(outputPlaceholder,layer_names=styleLayerNames, model=outModel)
     contentLoss = get_content_loss(F, P)
     styleLoss = get_style_loss(ws, Gs, As)
@@ -66,12 +67,15 @@ def callbackF(Xi):
     global iterator
     global name_list
     global count
+    global iteration
+    stop=int(iteration/50)
     if iterator%50==0:
+        deepCopy=copy.deepcopy(Xi)
         i = int(iterator / 50)
-        xOut = postprocess_array(Xi)
+        xOut = postprocess_array(deepCopy)
         imgName = PATH_OUTPUT + '.'.join(name_list[:-1]) + '_{}.{}'.format(
-            str(i + 1), name_list[-1])
-        xIm = save_original_size(xOut, imgName, contentOrignialImgSize)
+            str(i + 1) if i!=stop-1 else 'final', name_list[-1])
+        _ = save_original_size(xOut, imgName, contentOrignialImgSize)
 
     iterator+=1
     count.update(1)
@@ -89,7 +93,7 @@ if __name__=='__main__':
     output, outputPlaceholder = outImageUtils(WIDTH, HEIGHT)
     contentModel, styleModel, outModel = BuildModel(contentImgArr, styleImgArr, outputPlaceholder)
 
-    P = get_feature_reps(x=contentImgArr,layer_names=[contentLayerName], model=contentModel)[0]
+    P = get_feature_reps(x=contentImgArr,layer_names=[contentLayerNames], model=contentModel)[0]
     As = get_feature_reps(x=styleImgArr,layer_names=styleLayerNames, model=styleModel)
     ws = np.ones(len(styleLayerNames))/float(len(styleLayerNames))
 
@@ -98,11 +102,7 @@ if __name__=='__main__':
     start=time.time
     count=tqdm.tqdm(total=iteration)
     name_list = output_name.split('.')
-    iterator=0
+    iterator=1
     xopt, f_val, info= fmin_l_bfgs_b(calculate_loss, outputImg, fprime=get_grad,
-                                maxiter=iteration, disp=False,callback=callbackF)
-
-    xOut = postprocess_array(xopt)
-    xIm = save_original_size(xOut, PATH_OUTPUT + output_name, contentOrignialImgSize)
-
+                                maxiter=iteration,disp=True,callback=callbackF)
 

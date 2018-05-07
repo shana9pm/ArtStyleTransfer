@@ -6,7 +6,7 @@ WIDTH=512
 HEIGHT=512
 SIZE=(512,512)
 
-contentLayerName = 'block4_conv2'
+contentLayerNames = 'block4_conv2'
 
 styleLayerNames = [
     'block1_conv1',
