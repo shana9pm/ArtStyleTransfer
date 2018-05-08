@@ -74,7 +74,7 @@ def callbackF(Xi):
         i = int(iterator / 50)
         xOut = postprocess_array(deepCopy)
         imgName = PATH_OUTPUT + '.'.join(name_list[:-1]) + '_{}.{}'.format(
-            str(i + 1) if i!=stop-1 else 'final', name_list[-1])
+            str(i) if i!=stop-1 else 'final', name_list[-1])
         _ = save_original_size(xOut, imgName, contentOrignialImgSize)
 
     iterator+=1
