@@ -29,6 +29,8 @@ def build_parser():
                         help='alpha')
     parser.add_argument('--beta', dest='beta', required=False, default='10000.0',
                         help='alpha')
+    parser.add_argument('--fromc', dest='fromc', required=False, default='F',
+                        help='The output image is from content is initialization')
     return parser
 
 
@@ -58,13 +60,16 @@ def outImageUtils(width,height):
     outputPlaceholder=K.placeholder(shape=(1, width,height, 3))
     return output,outputPlaceholder
 
-def reload_process_img(x):
-    #RGB->BGR
-    x=x[:,:,::-1]
-    x[:, :, 0] -= 103.939
-    x[:, :, 1] -= 116.779
-    x[:, :, 2] -= 123.68
-
+def outImageUtils2(imagePath,width,height):
+    """
+    Initialize image from contentImg
+    """
+    img=Image.open(imagePath)
+    img=img.resize((width,height))
+    imgarr=np.array(img)
+    output=preprocess_array(imgarr)
+    outputPlaceholder=K.placeholder(shape=(1,width,height,3))
+    return output,outputPlaceholder
 
 def save_original_size(x,path, target_size):
     """
@@ -92,4 +97,16 @@ def postprocess_array(x):
     x = x[..., ::-1]
     x = np.clip(x, 0, 255)
     x = x.astype('uint8')
+    return x
+
+def preprocess_array(x):
+    if x.shape != (WIDTH, HEIGHT, 3):
+        x = x.reshape((WIDTH,HEIGHT, 3))
+    # RGB -> BGR
+    x = x.astype('float64')
+    x = x[:, :, ::-1]
+
+    x[:, :, 0] -= 103.939
+    x[:, :, 1] -= 116.779
+    x[:, :, 2] -= 123.68
     return x

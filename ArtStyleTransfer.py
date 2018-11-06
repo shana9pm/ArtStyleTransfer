@@ -134,6 +134,7 @@ if __name__=='__main__':
     stop = iteration // 50
     alpha=float(args.alpha)
     beta=float(args.beta)
+    fromc=False if args.fromc=='F' else True
 
     contentLossList=[]
     styleLossList=[]
@@ -144,7 +145,11 @@ if __name__=='__main__':
 
     contentImgArr, contentOrignialImgSize = inputImageUtils(PATH_INPUT_CONTENT+content_name, SIZE)
     styleImgArr, styleOrignialImgSize = inputImageUtils(PATH_INPUT_STYLE+style_name, SIZE)
-    output, outputPlaceholder = outImageUtils(WIDTH, HEIGHT)
+    if fromc:
+        output, outputPlaceholder=outImageUtils2(PATH_INPUT_CONTENT+content_name,WIDTH,HEIGHT)
+    else:
+        output, outputPlaceholder = outImageUtils(WIDTH, HEIGHT)
+
     contentModel, styleModel, outModel = BuildModel(contentImgArr, styleImgArr, outputPlaceholder)
 
     P = get_feature_reps(x=contentImgArr,layer_names=[contentLayerNames], model=contentModel)[0]
