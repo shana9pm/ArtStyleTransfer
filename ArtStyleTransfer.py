@@ -5,6 +5,7 @@ from scipy.optimize import fmin_l_bfgs_b
 from Settings import *
 import keras.backend as K
 import copy
+import matplotlib.pyplot as plt
 
 def calculate_loss(outputImg):
     if outputImg.shape != (1, WIDTH, WIDTH, 3):
@@ -12,7 +13,7 @@ def calculate_loss(outputImg):
     loss_fcn = K.function([outModel.input], [get_total_loss(outModel.input)])
     return loss_fcn([outputImg])[0].astype('float64')
 
-def get_total_loss(outputPlaceholder,alpha=1.0, beta=10000.0):
+def get_total_loss(outputPlaceholder):
     F = get_feature_reps(outputPlaceholder,layer_names=[contentLayerNames], model=outModel)[0]
     Gs = get_feature_reps(outputPlaceholder,layer_names=styleLayerNames, model=outModel)
     contentLoss = get_content_loss(F, P)
@@ -21,7 +22,10 @@ def get_total_loss(outputPlaceholder,alpha=1.0, beta=10000.0):
     return totalLoss
 
 def get_content_loss(F, P):
-    cLoss = 0.5*K.sum(K.square(F - P))
+    if lossType=='SE':
+        cLoss = 0.5*K.sum(K.square(F - P))
+    else:
+        cLoss= 0.5*K.sum(K.abs(F - P))
     return cLoss
 
 def get_style_loss(ws, Gs, As):
@@ -31,7 +35,10 @@ def get_style_loss(ws, Gs, As):
         N_l = K.int_shape(G)[0]
         G_gram = get_Gram_matrix(G)
         A_gram = get_Gram_matrix(A)
-        sLoss+= w*0.25*K.sum(K.square(G_gram - A_gram))/ (N_l**2 * M_l**2)
+        if lossType=='SE':
+            sLoss+= w*0.25*K.sum(K.square(G_gram - A_gram))/ (N_l**2 * M_l**2)
+        else:
+            sLoss += w * 0.25 * K.sum(K.abs(G_gram - A_gram)) / (N_l ** 2 * M_l ** 2)
     return sLoss
 
 def get_Gram_matrix(F):
@@ -65,13 +72,21 @@ def get_feature_reps(x,layer_names, model):
 def callbackF(Xi):
     """A call back function for scipy optimization to record Xi each step"""
     global iterator
-    global name_list
     global count
-    global iteration
-    stop=int(iteration/50)
+
+
+    if record:
+        deepCopy=copy.deepcopy(Xi)
+        this_styleLoss = calculate_style_loss(deepCopy)
+        this_contentLoss = calculate_content_loss(deepCopy)
+        contentLossList.append(this_contentLoss)
+        styleLossList.append(this_styleLoss)
+        this_totalLoss=this_styleLoss*beta+this_contentLoss*alpha
+        totalLossList.append(this_totalLoss)
+
     if iterator%50==0:
         deepCopy=copy.deepcopy(Xi)
-        i = int(iterator / 50)
+        i = iterator // 50
         xOut = postprocess_array(deepCopy)
         imgName = PATH_OUTPUT + '.'.join(name_list[:-1]) + '_{}.{}'.format(
             str(i) if i!=stop-1 else 'final', name_list[-1])
@@ -79,6 +94,30 @@ def callbackF(Xi):
 
     iterator+=1
     count.update(1)
+
+"""The following functions are basically used for loss record"""
+
+def get_style_loss_forward(outputPlaceholder):
+    Gs = get_feature_reps(outputPlaceholder, layer_names=styleLayerNames, model=outModel)
+    styleLoss = get_style_loss(Gs)
+    return styleLoss
+
+def get_content_loss_forward(outputPlaceholder):
+    F = get_feature_reps(outputPlaceholder, layer_names=[contentLayerNames], model=outModel)[0]
+    contentLoss = get_content_loss(F)
+    return contentLoss
+
+def calculate_style_loss(Xi):
+    if Xi.shape != (1, WIDTH, WIDTH, 3):
+        Xi = Xi.reshape((1, WIDTH, HEIGHT, 3))
+    loss_fcn = K.function([outModel.input], [get_style_loss_forward(outModel.input)])
+    return loss_fcn([Xi])[0].astype('float64')
+
+def calculate_content_loss(Xi):
+    if Xi.shape != (1, WIDTH, WIDTH, 3):
+        Xi = Xi.reshape((1, WIDTH, HEIGHT, 3))
+    loss_fcn = K.function([outModel.input], [get_content_loss_forward(outModel.input)])
+    return loss_fcn([Xi])[0].astype('float64')
 
 if __name__=='__main__':
 
@@ -88,6 +127,21 @@ if __name__=='__main__':
     style_name=args.style
     output_name=args.output
     iteration=int(args.iter)
+    flw=int(args.flw)
+    lossType=args.losstype
+    record=False if args.record=='F' else True
+    rstep=args.rstep
+    stop = iteration // 50
+    alpha=float(args.alpha)
+    beta=float(args.beta)
+
+    contentLossList=[]
+    styleLossList=[]
+    totalLossList=[]
+
+
+
+
     contentImgArr, contentOrignialImgSize = inputImageUtils(PATH_INPUT_CONTENT+content_name, SIZE)
     styleImgArr, styleOrignialImgSize = inputImageUtils(PATH_INPUT_STYLE+style_name, SIZE)
     output, outputPlaceholder = outImageUtils(WIDTH, HEIGHT)
@@ -95,7 +149,7 @@ if __name__=='__main__':
 
     P = get_feature_reps(x=contentImgArr,layer_names=[contentLayerNames], model=contentModel)[0]
     As = get_feature_reps(x=styleImgArr,layer_names=styleLayerNames, model=styleModel)
-    ws = np.ones(len(styleLayerNames))/float(len(styleLayerNames))
+    ws = wlList[flw]
 
 
     outputImg=output.flatten()
@@ -105,4 +159,23 @@ if __name__=='__main__':
     iterator=1
     xopt, f_val, info= fmin_l_bfgs_b(calculate_loss, outputImg, fprime=get_grad,
                                 maxiter=iteration,disp=True,callback=callbackF)
+    if record:
+        plt.plot(totalLossList)
+        plt.xlabel('Iterations')
+        plt.ylabel('Loss')
+        plt.title('TotalLoss')
+        plt.savefig(PATH_OUTPUT + 'TotalLoss.jpg')
 
+        plt.figure()
+        plt.plot(contentLossList)
+        plt.xlabel('Iterations')
+        plt.ylabel('Loss')
+        plt.title('ContentLoss')
+        plt.savefig(PATH_OUTPUT + 'ContentLoss.jpg')
+
+        plt.figure()
+        plt.plot(styleLossList)
+        plt.xlabel('Iterations')
+        plt.ylabel('Loss')
+        plt.title('StyleLoss')
+        plt.savefig(PATH_OUTPUT + 'StyleLoss.jpg')
