@@ -84,9 +84,9 @@ def callbackF(Xi):
         this_totalLoss=this_styleLoss*beta+this_contentLoss*alpha
         totalLossList.append(this_totalLoss)
 
-    if iterator%50==0:
+    if iterator%rstep==0:
         deepCopy=copy.deepcopy(Xi)
-        i = iterator // 50
+        i = iterator // rstep
         xOut = postprocess_array(deepCopy)
         imgName = PATH_OUTPUT + '.'.join(name_list[:-1]) + '_{}.{}'.format(
             str(i) if i!=stop-1 else 'final', name_list[-1])
@@ -130,8 +130,8 @@ if __name__=='__main__':
     flw=int(args.flw)
     lossType=args.losstype
     record=False if args.record=='F' else True
-    rstep=args.rstep
-    stop = iteration // 50
+    rstep=int(args.rstep)
+    stop = iteration // rstep
     alpha=float(args.alpha)
     beta=float(args.beta)
     fromc=False if args.fromc=='F' else True
