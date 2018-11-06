@@ -137,7 +137,7 @@ if __name__=='__main__':
     count=tqdm.tqdm(total=iteration)
     name_list = output_name.split('.')
     for i in range(iteration):
-        outputImg, f_val, info= fmin_l_bfgs_b(calculate_loss, outputImg, fprime=get_grad)
+        outputImg, f_val, info= fmin_l_bfgs_b(calculate_loss, outputImg, fprime=get_grad,maxiter=10)
         if record:
             deepCopy = copy.deepcopy(outputImg)
             this_styleLoss = calculate_style_loss(deepCopy)
