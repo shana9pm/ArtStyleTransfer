@@ -92,8 +92,6 @@ def callbackF(Xi):
         imgName = PATH_OUTPUT + '.'.join(name_list[:-1]) + '_{}.{}'.format(
             str(i) if i!=stop else 'final', name_list[-1])
         _ = save_original_size(xOut, imgName, contentOrignialImgSize)
-        if i==stop:
-            _ = save_original_size(xOut, PATH_CONTINUETRAINING+'final.jpg', contentOrignialImgSize)
     iterator+=1
     count.update(1)
 
@@ -143,14 +141,18 @@ if __name__=='__main__':
     totalLossList=[]
 
     iterator = 1
+    actualIteration=iteration
 
     if continueTraining:
-        output, outputPlaceholder = outImageUtils2(PATH_CONTINUETRAINING + 'final.jpg', WIDTH, HEIGHT)
-        LossList=pickle.load(open(PATH_CONTINUETRAINING+'LossList.dat','rb'))
-        totalLossList+=LossList[0]
-        contentLossList+=LossList[1]
-        styleLossList+=LossList[2]
-        iterator+=LossList[3]
+        sList=pickle.load(open(PATH_CONTINUETRAINING+'sList.dat','rb'))
+        totalLossList+=sList[0]
+        contentLossList+=sList[1]
+        styleLossList+=sList[2]
+        iteration-=sList[3]
+        output, outputPlaceholder = outImageUtils(WIDTH, HEIGHT)
+        output=sList[4]
+    # so iteration is the num we train this time actual iteration is what we accumulate in training
+
     else:
         if fromc:
             output, outputPlaceholder=outImageUtils2(PATH_INPUT_CONTENT+content_name,WIDTH,HEIGHT)
@@ -167,8 +169,11 @@ if __name__=='__main__':
     As = get_feature_reps(x=styleImgArr,layer_names=styleLayerNames, model=styleModel)
     ws = wlList[flw]
 
+    try:
+        outputImg = output.flatten()
+    except:
+        outputImg=output
 
-    outputImg=output.flatten()
     start=time.time
     count=tqdm.tqdm(total=iteration)
     name_list = output_name.split('.')
@@ -195,5 +200,7 @@ if __name__=='__main__':
         plt.ylabel('Loss')
         plt.title('StyleLoss')
         plt.savefig(PATH_OUTPUT + 'StyleLoss.jpg')
-    LossList=[totalLossList,contentLossList,styleLossList,iteration]
-    pickle.dump(LossList,open(PATH_CONTINUETRAINING+'LossList.dat','wb'))
+
+    sList=[totalLossList,contentLossList,styleLossList,actualIteration,xopt]
+    pickle.dump(sList,open(PATH_CONTINUETRAINING+'sList.dat','wb'))
+
