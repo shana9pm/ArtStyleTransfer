@@ -7,11 +7,15 @@ import keras.backend as K
 import copy
 import matplotlib.pyplot as plt
 
-def calculate_loss(outputImg):
+def calculate_loss_grad(outputImg):
     if outputImg.shape != (1, WIDTH, WIDTH, 3):
         outputImg = outputImg.reshape((1, WIDTH, HEIGHT, 3))
-    loss_fcn = K.function([outModel.input], [get_total_loss(outModel.input)])
-    return loss_fcn([outputImg])[0].astype('float64')
+    loss=get_total_loss(outModel.input)
+    grads=K.gradients(loss,[outModel.input])
+    loss_fcn = K.function([outModel.input], [loss,grads])
+    f_out=loss_fcn([outputImg])
+    return f_out[0].astype('float64'),f_out[1].flatten().astype('float64')
+
 
 def get_total_loss(outputPlaceholder):
     F = get_feature_reps(outputPlaceholder,layer_names=[contentLayerNames], model=outModel)[0]
@@ -45,15 +49,6 @@ def get_Gram_matrix(F):
     G = K.dot(F, K.transpose(F))
     return G
 
-def get_grad(gImArr):
-    """
-    Calculate the gradient of the loss function with respect to the generated image
-    """
-    if gImArr.shape != (1, WIDTH,HEIGHT, 3):
-        gImArr = gImArr.reshape((1, WIDTH,HEIGHT, 3))
-    grad_fcn = K.function([outModel.input], K.gradients(get_total_loss(outModel.input), [outModel.input]))
-    grad = grad_fcn([gImArr])[0].flatten().astype('float64')
-    return grad
 
 def get_feature_reps(x,layer_names, model):
 
@@ -69,31 +64,8 @@ def get_feature_reps(x,layer_names, model):
         featMatrices.append(featMatrix)
     return featMatrices
 
-def callbackF(Xi):
-    """A call back function for scipy optimization to record Xi each step"""
-    global iterator
-    global count
 
 
-    if record:
-        deepCopy=copy.deepcopy(Xi)
-        this_styleLoss = calculate_style_loss(deepCopy)
-        this_contentLoss = calculate_content_loss(deepCopy)
-        contentLossList.append(this_contentLoss)
-        styleLossList.append(this_styleLoss)
-        this_totalLoss=this_styleLoss*beta+this_contentLoss*alpha
-        totalLossList.append(this_totalLoss)
-
-    if iterator%rstep==0:
-        deepCopy=copy.deepcopy(Xi)
-        i = iterator // rstep
-        xOut = postprocess_array(deepCopy)
-        imgName = PATH_OUTPUT + '.'.join(name_list[:-1]) + '_{}.{}'.format(
-            str(i) if i!=stop else 'final', name_list[-1])
-        _ = save_original_size(xOut, imgName, contentOrignialImgSize)
-
-    iterator+=1
-    count.update(1)
 
 """The following functions are basically used for loss record"""
 
@@ -119,6 +91,27 @@ def calculate_content_loss(Xi):
     loss_fcn = K.function([outModel.input], [get_content_loss_forward(outModel.input)])
     return loss_fcn([Xi])[0].astype('float64')
 
+class Evaluator(object):
+    def __init__(self):
+        self.loss_value = None
+        self.grads_values = None
+
+    def loss(self, x):
+        assert self.loss_value is None
+        loss_value, grad_values = calculate_loss_grad(x)
+        self.loss_value = loss_value
+        self.grad_values = grad_values
+        return self.loss_value
+
+    def grads(self, x):
+        assert self.loss_value is not None
+        grad_values = np.copy(self.grad_values)
+        self.loss_value = None
+        self.grad_values = None
+        return grad_values
+
+
+evaluator = Evaluator()
 if __name__=='__main__':
 
     parser=build_parser()
@@ -155,15 +148,29 @@ if __name__=='__main__':
     P = get_feature_reps(x=contentImgArr,layer_names=[contentLayerNames], model=contentModel)[0]
     As = get_feature_reps(x=styleImgArr,layer_names=styleLayerNames, model=styleModel)
     ws = wlList[flw]
-#just
+
 
     outputImg=output.flatten()
     start=time.time
     count=tqdm.tqdm(total=iteration)
     name_list = output_name.split('.')
-    iterator=1
-    xopt, f_val, info= fmin_l_bfgs_b(calculate_loss, outputImg, fprime=get_grad,
-                                maxiter=iteration,disp=True,callback=callbackF)
+    for i in range(iteration):
+        outputImg, f_val, info= fmin_l_bfgs_b(evaluator.loss, outputImg, fprime=evaluator.grads)
+        if record:
+            deepCopy = copy.deepcopy(outputImg)
+            this_styleLoss = calculate_style_loss(deepCopy)
+            this_contentLoss = calculate_content_loss(deepCopy)
+            contentLossList.append(this_contentLoss)
+            styleLossList.append(this_styleLoss)
+            this_totalLoss = this_styleLoss * beta + this_contentLoss * alpha
+            totalLossList.append(this_totalLoss)
+        if i%rstep==0:
+            deepCopy = copy.deepcopy(outputImg)
+            iter = i // rstep
+            xOut = postprocess_array(deepCopy)
+            imgName = PATH_OUTPUT + '.'.join(name_list[:-1]) + '_{}.{}'.format(
+                str(iter) if iter != stop else 'final', name_list[-1])
+            _ = save_original_size(xOut, imgName, contentOrignialImgSize)
     if record:
         plt.plot(totalLossList)
         plt.xlabel('Iterations')
