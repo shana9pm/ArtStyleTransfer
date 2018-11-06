@@ -2,9 +2,11 @@
 PATH_INPUT_STYLE = 'input/style/'
 PATH_INPUT_CONTENT = 'input/content/'
 PATH_OUTPUT = 'output/'
+PATH_CONTINUETRAINING=PATH_OUTPUT
 WIDTH=512
 HEIGHT=512
 SIZE=(512,512)
+
 
 contentLayerNames = 'block4_conv2'
 

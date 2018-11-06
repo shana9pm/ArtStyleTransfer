@@ -31,6 +31,8 @@ def build_parser():
                         help='alpha')
     parser.add_argument('--fromc', dest='fromc', required=False, default='F',
                         help='The output image is from content is initialization')
+    parser.add_argument('--cont', dest='continueTraining', required=False, default='F',
+                        help='Activation of continuos training mode')
     return parser
 
 

@@ -6,6 +6,7 @@ from Settings import *
 import keras.backend as K
 import copy
 import matplotlib.pyplot as plt
+import pickle
 
 def calculate_loss(outputImg):
     if outputImg.shape != (1, WIDTH, WIDTH, 3):
@@ -69,6 +70,32 @@ def get_feature_reps(x,layer_names, model):
         featMatrices.append(featMatrix)
     return featMatrices
 
+def callbackF(Xi):
+    """A call back function for scipy optimization to record Xi each step"""
+    global iterator
+    global count
+
+
+    if record:
+        deepCopy=copy.deepcopy(Xi)
+        this_styleLoss = calculate_style_loss(deepCopy)
+        this_contentLoss = calculate_content_loss(deepCopy)
+        contentLossList.append(this_contentLoss)
+        styleLossList.append(this_styleLoss)
+        this_totalLoss=this_styleLoss*beta+this_contentLoss*alpha
+        totalLossList.append(this_totalLoss)
+
+    if iterator%rstep==0:
+        deepCopy=copy.deepcopy(Xi)
+        i = iterator // rstep
+        xOut = postprocess_array(deepCopy)
+        imgName = PATH_OUTPUT + '.'.join(name_list[:-1]) + '_{}.{}'.format(
+            str(i) if i!=stop else 'final', name_list[-1])
+        _ = save_original_size(xOut, imgName, contentOrignialImgSize)
+        if i==stop:
+            _ = save_original_size(xOut, PATH_CONTINUETRAINING+'final.jpg', contentOrignialImgSize)
+    iterator+=1
+    count.update(1)
 
 """The following functions are basically used for loss record"""
 
@@ -110,21 +137,30 @@ if __name__=='__main__':
     alpha=float(args.alpha)
     beta=float(args.beta)
     fromc=False if args.fromc=='F' else True
-
+    continueTraining=False if args.continueTraining=='F' else True
     contentLossList=[]
     styleLossList=[]
     totalLossList=[]
 
+    iterator = 1
+
+    if continueTraining:
+        output, outputPlaceholder = outImageUtils2(PATH_CONTINUETRAINING + 'final.jpg', WIDTH, HEIGHT)
+        LossList=pickle.load(PATH_CONTINUETRAINING+'LossList.dat','rb')
+        totalLossList+=LossList[0]
+        contentLossList+=LossList[1]
+        styleLossList+=LossList[2]
+        iterator+=LossList[3]
+    else:
+        if fromc:
+            output, outputPlaceholder=outImageUtils2(PATH_INPUT_CONTENT+content_name,WIDTH,HEIGHT)
+        else:
+            output, outputPlaceholder = outImageUtils(WIDTH, HEIGHT)
 
 
 
     contentImgArr, contentOrignialImgSize = inputImageUtils(PATH_INPUT_CONTENT+content_name, SIZE)
     styleImgArr, styleOrignialImgSize = inputImageUtils(PATH_INPUT_STYLE+style_name, SIZE)
-    if fromc:
-        output, outputPlaceholder=outImageUtils2(PATH_INPUT_CONTENT+content_name,WIDTH,HEIGHT)
-    else:
-        output, outputPlaceholder = outImageUtils(WIDTH, HEIGHT)
-
     contentModel, styleModel, outModel = BuildModel(contentImgArr, styleImgArr, outputPlaceholder)
 
     P = get_feature_reps(x=contentImgArr,layer_names=[contentLayerNames], model=contentModel)[0]
@@ -136,24 +172,9 @@ if __name__=='__main__':
     start=time.time
     count=tqdm.tqdm(total=iteration)
     name_list = output_name.split('.')
-    for i in range(iteration):
-        outputImg, f_val, info= fmin_l_bfgs_b(calculate_loss, outputImg, fprime=get_grad,maxiter=10)
-        if record:
-            deepCopy = copy.deepcopy(outputImg)
-            this_styleLoss = calculate_style_loss(deepCopy)
-            this_contentLoss = calculate_content_loss(deepCopy)
-            contentLossList.append(this_contentLoss)
-            styleLossList.append(this_styleLoss)
-            this_totalLoss = this_styleLoss * beta + this_contentLoss * alpha
-            totalLossList.append(this_totalLoss)
-        if i%rstep==0:
-            deepCopy = copy.deepcopy(outputImg)
-            iter = i // rstep
-            xOut = postprocess_array(deepCopy)
-            imgName = PATH_OUTPUT + '.'.join(name_list[:-1]) + '_{}.{}'.format(
-                str(iter) if iter != stop else 'final', name_list[-1])
-            _ = save_original_size(xOut, imgName, contentOrignialImgSize)
-        count.update(1)
+
+    xopt, f_val, info= fmin_l_bfgs_b(calculate_loss, outputImg, fprime=get_grad,
+                                maxiter=iteration,disp=True,callback=callbackF)
     if record:
         plt.plot(totalLossList)
         plt.xlabel('Iterations')
@@ -174,3 +195,5 @@ if __name__=='__main__':
         plt.ylabel('Loss')
         plt.title('StyleLoss')
         plt.savefig(PATH_OUTPUT + 'StyleLoss.jpg')
+    LossList=[totalLossList,contentLossList,styleLossList,iteration]
+    pickle.dump(LossList,open(PATH_CONTINUETRAINING+'LossList.dat','wb'))
