@@ -99,12 +99,12 @@ def callbackF(Xi):
 
 def get_style_loss_forward(outputPlaceholder):
     Gs = get_feature_reps(outputPlaceholder, layer_names=styleLayerNames, model=outModel)
-    styleLoss = get_style_loss(Gs)
+    styleLoss = get_style_loss(ws,Gs,As)
     return styleLoss
 
 def get_content_loss_forward(outputPlaceholder):
     F = get_feature_reps(outputPlaceholder, layer_names=[contentLayerNames], model=outModel)[0]
-    contentLoss = get_content_loss(F)
+    contentLoss = get_content_loss(F,P)
     return contentLoss
 
 def calculate_style_loss(Xi):
