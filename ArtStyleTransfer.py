@@ -12,7 +12,7 @@ def calculate_loss_grad(outputImg):
         outputImg = outputImg.reshape((1, WIDTH, HEIGHT, 3))
     loss=get_total_loss(outModel.input)
     grads=K.gradients(loss,[outModel.input])
-    loss_fcn = K.function([outModel.input], [loss,grads])
+    loss_fcn = K.function([outModel.input], [loss,grads[0]])
     f_out=loss_fcn([outputImg])
     return f_out[0].astype('float64'),f_out[1].flatten().astype('float64')
 
