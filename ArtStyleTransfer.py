@@ -146,7 +146,7 @@ if __name__=='__main__':
 
     if continueTraining:
         output, outputPlaceholder = outImageUtils2(PATH_CONTINUETRAINING + 'final.jpg', WIDTH, HEIGHT)
-        LossList=pickle.load(PATH_CONTINUETRAINING+'LossList.dat','rb')
+        LossList=pickle.load(open(PATH_CONTINUETRAINING+'LossList.dat','rb'))
         totalLossList+=LossList[0]
         contentLossList+=LossList[1]
         styleLossList+=LossList[2]
