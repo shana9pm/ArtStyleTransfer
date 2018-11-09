@@ -39,7 +39,7 @@ def get_style_loss(ws, Gs, As):
         if lossType=='SE':
             sLoss+= w*0.25*K.sum(K.square(G_gram - A_gram))/ (N_l**2 * M_l**2)
         else:
-            sLoss += w * 0.25 * K.sum(K.abs(G_gram - A_gram)) / (N_l ** 2 * M_l ** 2)
+            sLoss += w * 0.25 * K.sum(K.abs(G_gram - A_gram)) / (N_l  * M_l )
     return sLoss
 
 def get_Gram_matrix(F):
@@ -143,6 +143,7 @@ if __name__=='__main__':
     iterator = 1
     actualIteration=iteration
 
+    #So continueTraining will override fromc
     if continueTraining:
         sList=pickle.load(open(PATH_CONTINUETRAINING+'sList.dat','rb'))
         totalLossList+=sList[0]
