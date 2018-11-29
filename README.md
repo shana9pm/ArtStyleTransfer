@@ -84,7 +84,7 @@ If you really want to try this,go as the following:
 
 2.Specify iteration to be like 
 
-$iteration=iteration you have already trained + iteration you want to go further$
+iteration=iteration you have already trained + iteration you want to go further
 
 EX:if you have trained 400 iterations and want to continue to 600 iterations as total,then
 
