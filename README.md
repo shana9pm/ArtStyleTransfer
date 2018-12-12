@@ -34,7 +34,7 @@ To run the code, just cd into the directory and run the following code:
 python ArtStyleTransfer.py --content content.jpg --style style.jpg --output output.jpg
 ```
 
---iter:num of iterations you want to specify.
+--iter:num of iterations you want to specify.Default 400.
 
 ```sh
 python ArtStyleTransfer.py --content content.jpg --style style.jpg --output output.jpg --iter 600
