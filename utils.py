@@ -15,8 +15,8 @@ def build_parser():
                         help='Style image, e.g. "style.jpg"')
     parser.add_argument('--output', dest='output', required=True,
                         help='Output image, e.g. "output.jpg"')
-    parser.add_argument('--iter',dest='iter', required=False,default=600,
-                        help='Iteration with default and suggested 600 Better to be multiple of 50')
+    parser.add_argument('--iter',dest='iter', required=False,default=400,
+                        help='Iteration with default and suggested 400 Better to be multiple of 50')
     parser.add_argument('--record', dest='record', required=False, default='F',
                         help='Record loss or not,T for record')
     parser.add_argument('--flw', dest='flw', required=False, default='0',
